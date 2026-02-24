@@ -1,0 +1,18 @@
+from sqlalchemy import Column, Integer, String, Float
+from database import Base
+
+# This class = One Table in your Database
+class ItemDB(Base):
+    __tablename__ = "items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    price = Column(Float)
+    description = Column(String, nullable=True)
+    
+class UserDB(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True) # unique=True means no duplicate emails
+    hashed_password = Column(String) # We store the HASH, not the password
