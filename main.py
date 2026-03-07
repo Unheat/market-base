@@ -42,8 +42,17 @@ app = FastAPI()
 ## items API
 @app.post("/items/")
 def create_item(item: schemas.ItemCreate, db: Session = Depends(dependencies.get_db), current_user: str = Depends(dependencies.get_current_user)):
-    # Create the DB object
-    db_item = models.ItemDB(name=item.name, price=item.price, description=item.description)
+    # 1. Find the actual user object in the database using their email from the token
+    user = db.query(models.UserDB).filter(models.UserDB.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found in database")
+    # 2. Build the item, but inject the user.id into the owner_id column
+    db_item = models.ItemDB(
+            name=item.name, 
+            price=item.price, 
+            description=item.description,
+            owner_id=user.id  
+        )
     # Add to the "staging area"
     db.add(db_item)
     # Commit (Save to file)

@@ -16,9 +16,13 @@ def get_db():
         db.close()
         
 def get_current_user(token: str = Depends(oauth2_scheme)):
+    if security.SECRET_KEY is None:
+        raise RuntimeError("SECRET_KEY is not set in security.py")
+    if security.ALGORITHM is None:
+        raise RuntimeError("SECRET_KEY is not set in security.py")
     try:
         payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
-        email: str = payload.get("sub")
+        email :str | None = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=401, detail="Invalid Token")
         return email
