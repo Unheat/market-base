@@ -1,10 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from config import settings
 # 1. Create the Database URL (This is for SQLite)
 # Later, for AWS, we just change this string to a Postgres URL.
-SQLALCHEMY_DATABASE_URL = "sqlite:///./market.db"
-
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 # 2. Create the Engine (The thing that actually talks to the DB)
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}

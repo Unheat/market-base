@@ -1,10 +1,7 @@
 from pwdlib import PasswordHash
-import os
-from dotenv import load_dotenv
+from config import settings
 
-
-load_dotenv() # This loads the variables from .env into Python
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
 
 pwd_context = PasswordHash.recommended()

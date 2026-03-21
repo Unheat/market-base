@@ -25,18 +25,33 @@
 # def get_all_items():
 #     return {"items": db}
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from fastapi.security import OAuth2PasswordRequestForm
 import models, schemas, security, dependencies
 from database import engine
 from datetime import datetime, timezone
 from jose import jwt
 from datetime import datetime, timedelta
+from fastapi.middleware.cors import CORSMiddleware
 # 1. Create the Database Tables (Run the migration)
-models.Base.metadata.create_all(bind=engine)
+ 
 
 app = FastAPI()
+
+vip_list = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:8000"
+]
+
+# 3. Attach the guard to your app
+app.add_middleware(CORSMiddleware,
+    allow_origins=vip_list,
+    allow_credentials=True,
+    allow_methods=["*"],  # The "*" means ALLOW ALL (GET, POST, DELETE)
+    allow_headers=["*"],  # Allows tokens and secret headers
+)
 
 # API
 ## items API
@@ -60,12 +75,6 @@ def create_item(item: schemas.ItemCreate, db: Session = Depends(dependencies.get
     # Refresh (Get the ID that was just generated)
     db.refresh(db_item)
     return db_item
-
-@app.get("/items/")
-def read_items(db: Session = Depends(dependencies.get_db)):
-    # SQL translation: "SELECT * FROM items"
-    items = db.query(models.ItemDB).all()
-    return items
 
 ## users API
 @app.post("/register/")
@@ -95,16 +104,19 @@ def get_users_debug(db: Session = Depends(dependencies.get_db)):
     return users
 
 @app.post("/login")
-def login(user: schemas.UserCreate, db: Session = Depends(dependencies.get_db)):
-    # 1. Find the user by email
-    db_user = db.query(models.UserDB).filter(models.UserDB.email == user.email).first()
+def login(
+    # 2. Use OAuth2PasswordRequestForm instead of schemas.UserCreate
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: Session = Depends(dependencies.get_db)
+):
+    # 3. OAuth2PasswordRequestForm uses '.username' for the first field (even if it's an email)
+    db_user = db.query(models.UserDB).filter(models.UserDB.email == form_data.username).first()
     
-    # 2. Check if user exists AND if password is correct
-    if not db_user or not security.pwd_context.verify(user.password, db_user.hashed_password):
+    # 4. Use '.password' from the form_data
+    if not db_user or not security.pwd_context.verify(form_data.password, db_user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    # 3. Create the "Digital Passport" (Token)
-    # We set it to expire in 300 minutes for security
+    # The rest of your token logic remains the same
     access_token_expires = timedelta(minutes=300)
     expire = datetime.now(timezone.utc) + access_token_expires
     
@@ -113,5 +125,15 @@ def login(user: schemas.UserCreate, db: Session = Depends(dependencies.get_db)):
 
     return {"access_token": encoded_jwt, "token_type": "bearer"}
 
-
-
+@app.delete("/items/{item_id}")
+def delete_item(item_id: int, db: Session = Depends(dependencies.get_db), current_user: str = Depends(dependencies.get_current_user)):
+    user = db.query(models.UserDB).filter(models.UserDB.email==current_user).first() # first returnt the first oject in the list
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    item_to_delete = db.query(models.ItemDB).filter(models.ItemDB.id == item_id).first()
+    
+    if item_to_delete.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this item")
+    db.delete(item_to_delete)
+    db.commit()
+    return {"message": f"Item {item_id} successfully deleted"}
